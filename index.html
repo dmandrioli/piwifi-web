@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PiWiFi - Diagnostic WiFi</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PiWiFi</h1>
+            <div id="connection-status" class="status disconnected">
+                <span class="dot"></span>
+                <span class="text">Déconnecté</span>
+            </div>
+        </header>
+
+        <section id="connect-section">
+            <button id="connect-btn" class="primary-btn">
+                Connecter au Pi
+            </button>
+            <p class="hint">Assurez-vous que le Bluetooth est activé</p>
+        </section>
+
+        <section id="controls" class="hidden">
+            <div class="button-group">
+                <button id="scan-btn" class="action-btn">
+                    Scanner les réseaux
+                </button>
+                <button id="channels-btn" class="action-btn">
+                    Analyser les canaux
+                </button>
+            </div>
+        </section>
+
+        <section id="networks-section" class="hidden">
+            <h2>Réseaux WiFi</h2>
+            <div id="networks-list"></div>
+        </section>
+
+        <section id="monitor-section" class="hidden">
+            <h2>Signal en temps réel</h2>
+            <div class="monitor-header">
+                <span id="monitor-ssid"></span>
+                <button id="stop-monitor-btn" class="small-btn">Arrêter</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="signal-chart"></canvas>
+            </div>
+            <div id="current-rssi" class="rssi-display">-- dBm</div>
+        </section>
+
+        <section id="channels-section" class="hidden">
+            <h2>Occupation des canaux</h2>
+            <div class="tabs">
+                <button class="tab active" data-band="2g">2.4 GHz</button>
+                <button class="tab" data-band="5g">5 GHz</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="channels-chart"></canvas>
+            </div>
+        </section>
+
+        <section id="log-section">
+            <h3>Journal</h3>
+            <div id="log"></div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
