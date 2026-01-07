@@ -18,6 +18,10 @@ let channelsChart = null;
 let signalData = [];
 const MAX_SIGNAL_POINTS = 30;
 
+// Chunking state
+let chunks = [];
+let expectedChunks = 0;
+
 // DOM Elements
 const connectBtn = document.getElementById('connect-btn');
 const connectionStatus = document.getElementById('connection-status');
@@ -149,14 +153,47 @@ async function sendCommand(cmd) {
 }
 
 function onResponse(event) {
-    const decoder = new TextDecoder();
-    const data = decoder.decode(event.target.value);
+    const value = new Uint8Array(event.target.value.buffer);
 
-    try {
-        const response = JSON.parse(data);
-        handleResponse(response);
-    } catch (e) {
-        log(`Réponse brute: ${data}`);
+    // First 2 bytes are chunk header: [index, total]
+    const chunkIndex = value[0];
+    const totalChunks = value[1];
+    const chunkData = value.slice(2);
+
+    log(`Chunk ${chunkIndex + 1}/${totalChunks} reçu (${chunkData.length} bytes)`);
+
+    // Reset if new message
+    if (chunkIndex === 0) {
+        chunks = [];
+        expectedChunks = totalChunks;
+    }
+
+    chunks[chunkIndex] = chunkData;
+
+    // Check if all chunks received
+    const receivedCount = chunks.filter(c => c !== undefined).length;
+    if (receivedCount === expectedChunks) {
+        // Reassemble message
+        const fullData = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
+        let offset = 0;
+        for (const chunk of chunks) {
+            fullData.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        const decoder = new TextDecoder();
+        const data = decoder.decode(fullData);
+
+        try {
+            const response = JSON.parse(data);
+            handleResponse(response);
+        } catch (e) {
+            log(`Erreur JSON: ${e.message}`, 'error');
+        }
+
+        // Reset
+        chunks = [];
+        expectedChunks = 0;
     }
 }
 
