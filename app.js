@@ -153,47 +153,16 @@ async function sendCommand(cmd) {
 }
 
 function onResponse(event) {
-    const value = new Uint8Array(event.target.value.buffer);
+    const decoder = new TextDecoder();
+    const data = decoder.decode(event.target.value);
 
-    // First 2 bytes are chunk header: [index, total]
-    const chunkIndex = value[0];
-    const totalChunks = value[1];
-    const chunkData = value.slice(2);
+    log(`Reçu ${data.length} bytes`);
 
-    log(`Chunk ${chunkIndex + 1}/${totalChunks} reçu (${chunkData.length} bytes)`);
-
-    // Reset if new message
-    if (chunkIndex === 0) {
-        chunks = [];
-        expectedChunks = totalChunks;
-    }
-
-    chunks[chunkIndex] = chunkData;
-
-    // Check if all chunks received
-    const receivedCount = chunks.filter(c => c !== undefined).length;
-    if (receivedCount === expectedChunks) {
-        // Reassemble message
-        const fullData = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
-        let offset = 0;
-        for (const chunk of chunks) {
-            fullData.set(chunk, offset);
-            offset += chunk.length;
-        }
-
-        const decoder = new TextDecoder();
-        const data = decoder.decode(fullData);
-
-        try {
-            const response = JSON.parse(data);
-            handleResponse(response);
-        } catch (e) {
-            log(`Erreur JSON: ${e.message}`, 'error');
-        }
-
-        // Reset
-        chunks = [];
-        expectedChunks = 0;
+    try {
+        const response = JSON.parse(data);
+        handleResponse(response);
+    } catch (e) {
+        log(`Erreur JSON: ${e.message}`, 'error');
     }
 }
 
@@ -257,7 +226,7 @@ function displayNetworks(networks) {
         item.innerHTML = `
             <div class="network-info">
                 <div class="network-ssid">${net.ssid || '(Réseau caché)'}</div>
-                <div class="network-details">Ch ${net.channel} · ${net.security}</div>
+                <div class="network-details">Ch ${net.ch || net.channel}</div>
             </div>
             <div class="network-signal">
                 ${getSignalBars(net.rssi)}
