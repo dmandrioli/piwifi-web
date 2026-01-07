@@ -18,9 +18,6 @@ let channelsChart = null;
 let signalData = [];
 const MAX_SIGNAL_POINTS = 30;
 
-// Chunking state
-let chunks = [];
-let expectedChunks = 0;
 
 // DOM Elements
 const connectBtn = document.getElementById('connect-btn');
