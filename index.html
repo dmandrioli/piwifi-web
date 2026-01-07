@@ -3,9 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiWiFi - Diagnostic WiFi</title>
-    <link rel="stylesheet" href="style.css?v=3">
+    <title>PiWiFi</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --primary: #3b82f6; --success: #22c55e; --danger: #ef4444; --bg: #0f172a; --bg-card: #1e293b; --text: #f1f5f9; --text-muted: #94a3b8; --border: #334155; }
+body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1rem; }
+.container { max-width: 600px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+h1 { font-size: 1.5rem; } h2 { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 1rem; }
+.status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+.status.connected .dot { background: var(--success); }
+.primary-btn { width: 100%; padding: 1rem; font-size: 1.1rem; color: white; background: var(--primary); border: none; border-radius: 12px; cursor: pointer; }
+.primary-btn:disabled { opacity: 0.5; }
+.action-btn { flex: 1; padding: 0.75rem; color: white; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.button-group { display: flex; gap: 0.75rem; }
+section { margin-bottom: 1.5rem; }
+.hidden { display: none !important; }
+.hint { text-align: center; color: var(--text-muted); font-size: 0.875rem; margin-top: 0.75rem; }
+#networks-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.network-item { display: flex; align-items: center; padding: 0.75rem; background: var(--bg-card); border-radius: 8px; cursor: pointer; }
+.network-info { flex: 1; }
+.network-ssid { font-weight: 500; }
+.network-details { font-size: 0.8rem; color: var(--text-muted); }
+.network-signal { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+.signal-bars { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+.signal-bar { width: 4px; background: var(--border); border-radius: 1px; }
+.signal-bar.active { background: var(--success); }
+.signal-bar:nth-child(1) { height: 25%; }
+.signal-bar:nth-child(2) { height: 50%; }
+.signal-bar:nth-child(3) { height: 75%; }
+.signal-bar:nth-child(4) { height: 100%; }
+#log { max-height: 150px; overflow-y: auto; padding: 0.75rem; background: var(--bg-card); border-radius: 8px; font-family: monospace; font-size: 0.75rem; color: var(--text-muted); }
+.log-entry.error { color: var(--danger); }
+.log-entry.success { color: var(--success); }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -16,59 +49,119 @@
                 <span class="text">Déconnecté</span>
             </div>
         </header>
-
         <section id="connect-section">
-            <button id="connect-btn" class="primary-btn">
-                Connecter au Pi
-            </button>
-            <p class="hint">Assurez-vous que le Bluetooth est activé</p>
+            <button id="connect-btn" class="primary-btn">Connecter au Pi</button>
+            <p class="hint">Bluetooth activé ?</p>
         </section>
-
         <section id="controls" class="hidden">
             <div class="button-group">
-                <button id="scan-btn" class="action-btn">
-                    Scanner les réseaux
-                </button>
-                <button id="channels-btn" class="action-btn">
-                    Analyser les canaux
-                </button>
+                <button id="scan-btn" class="action-btn">Scanner</button>
             </div>
         </section>
-
         <section id="networks-section" class="hidden">
             <h2>Réseaux WiFi</h2>
             <div id="networks-list"></div>
         </section>
-
-        <section id="monitor-section" class="hidden">
-            <h2>Signal en temps réel</h2>
-            <div class="monitor-header">
-                <span id="monitor-ssid"></span>
-                <button id="stop-monitor-btn" class="small-btn">Arrêter</button>
-            </div>
-            <div class="chart-container">
-                <canvas id="signal-chart"></canvas>
-            </div>
-            <div id="current-rssi" class="rssi-display">-- dBm</div>
-        </section>
-
-        <section id="channels-section" class="hidden">
-            <h2>Occupation des canaux</h2>
-            <div class="tabs">
-                <button class="tab active" data-band="2g">2.4 GHz</button>
-                <button class="tab" data-band="5g">5 GHz</button>
-            </div>
-            <div class="chart-container">
-                <canvas id="channels-chart"></canvas>
-            </div>
-        </section>
-
         <section id="log-section">
             <h3>Journal</h3>
             <div id="log"></div>
         </section>
     </div>
+<script>
+const SERVICE_UUID = 'a1b2c3d4-0001-1000-8000-00805f9b34fb';
+const COMMAND_UUID = 'a1b2c3d4-0002-1000-8000-00805f9b34fb';
+const RESPONSE_UUID = 'a1b2c3d4-0003-1000-8000-00805f9b34fb';
 
-    <script src="app.js?v=3"></script>
+let device = null, server = null, commandChar = null, responseChar = null;
+
+const connectBtn = document.getElementById('connect-btn');
+const connectionStatus = document.getElementById('connection-status');
+const controlsSection = document.getElementById('controls');
+const scanBtn = document.getElementById('scan-btn');
+const networksSection = document.getElementById('networks-section');
+const networksList = document.getElementById('networks-list');
+const logDiv = document.getElementById('log');
+
+connectBtn.addEventListener('click', connect);
+scanBtn.addEventListener('click', scanNetworks);
+
+function log(msg, type = '') {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry ' + type;
+    entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    logDiv.insertBefore(entry, logDiv.firstChild);
+}
+
+log('v4 - App prête');
+
+async function connect() {
+    if (!navigator.bluetooth) { log('Web Bluetooth non supporté', 'error'); return; }
+    try {
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connexion...';
+        log('Recherche...');
+        device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
+        device.addEventListener('gattserverdisconnected', () => { log('Déconnecté', 'error'); setConnected(false); });
+        log('Trouvé: ' + (device.name || device.id));
+        server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        commandChar = await service.getCharacteristic(COMMAND_UUID);
+        responseChar = await service.getCharacteristic(RESPONSE_UUID);
+        await responseChar.startNotifications();
+        responseChar.addEventListener('characteristicvaluechanged', onResponse);
+        log('Connecté!', 'success');
+        setConnected(true);
+        sendCommand({ cmd: 'ping' });
+    } catch (e) { log('Erreur: ' + e.message, 'error'); setConnected(false); }
+}
+
+function setConnected(c) {
+    connectionStatus.className = 'status ' + (c ? 'connected' : 'disconnected');
+    connectionStatus.querySelector('.text').textContent = c ? 'Connecté' : 'Déconnecté';
+    connectBtn.textContent = c ? 'Connecté' : 'Connecter au Pi';
+    connectBtn.disabled = c;
+    controlsSection.classList.toggle('hidden', !c);
+    if (!c) networksSection.classList.add('hidden');
+}
+
+async function sendCommand(cmd) {
+    if (!commandChar) return;
+    log('Envoi: ' + JSON.stringify(cmd));
+    await commandChar.writeValue(new TextEncoder().encode(JSON.stringify(cmd)));
+}
+
+function onResponse(event) {
+    const data = new TextDecoder().decode(event.target.value);
+    log('Reçu: ' + data.length + ' bytes');
+    try {
+        const r = JSON.parse(data);
+        if (r.type === 'pong') log('Ping OK', 'success');
+        else if (r.type === 'scan_result') displayNetworks(r.networks);
+        else if (r.type === 'error') log('Erreur: ' + r.message, 'error');
+    } catch (e) { log('JSON error: ' + e.message, 'error'); }
+}
+
+async function scanNetworks() {
+    scanBtn.disabled = true;
+    log('Scan...');
+    await sendCommand({ cmd: 'scan' });
+    setTimeout(() => scanBtn.disabled = false, 2000);
+}
+
+function displayNetworks(networks) {
+    networksSection.classList.remove('hidden');
+    networksList.innerHTML = '';
+    networks.forEach(n => {
+        const item = document.createElement('div');
+        item.className = 'network-item';
+        const strength = n.rssi >= -50 ? 4 : n.rssi >= -60 ? 3 : n.rssi >= -70 ? 2 : 1;
+        let bars = '';
+        for (let i = 1; i <= 4; i++) bars += '<div class="signal-bar ' + (i <= strength ? 'active' : '') + '"></div>';
+        item.innerHTML = '<div class="network-info"><div class="network-ssid">' + (n.ssid || '?') + '</div><div class="network-details">Ch ' + (n.ch || n.channel || '?') + '</div></div><div class="network-signal"><div class="signal-bars">' + bars + '</div><span>' + n.rssi + '</span></div>';
+        networksList.appendChild(item);
+    });
+    log(networks.length + ' réseaux', 'success');
+}
+</script>
 </body>
 </html>
