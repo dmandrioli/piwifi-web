@@ -93,7 +93,7 @@ function log(msg, type = '') {
     logDiv.insertBefore(entry, logDiv.firstChild);
 }
 
-log('v5 - Auto-scan');
+log('v6');
 
 async function connect() {
     if (!navigator.bluetooth) { log('Web Bluetooth non supporté', 'error'); return; }
@@ -126,7 +126,7 @@ function setConnected(c) {
     // Auto-scan every 5 seconds when connected
     if (c) {
         sendCommand({ cmd: 'scan' });
-        autoScanInterval = setInterval(() => sendCommand({ cmd: 'scan' }), 5000);
+        autoScanInterval = setInterval(() => sendCommand({ cmd: 'scan' }), 10000);
     } else {
         if (autoScanInterval) { clearInterval(autoScanInterval); autoScanInterval = null; }
     }
@@ -140,13 +140,13 @@ async function sendCommand(cmd) {
 
 function onResponse(event) {
     const data = new TextDecoder().decode(event.target.value);
-    log('Reçu: ' + data.length + ' bytes');
+    log('Reçu: ' + data.length + 'b');
     try {
         const r = JSON.parse(data);
-        if (r.type === 'pong') log('Ping OK', 'success');
-        else if (r.type === 'scan_result') displayNetworks(r.networks);
-        else if (r.type === 'error') log('Erreur: ' + r.message, 'error');
-    } catch (e) { log('JSON error: ' + e.message, 'error'); }
+        if (r.type === 'pong') log('OK', 'success');
+        else if (r.type === 'scan') displayNetworks(r.n, r.t);
+        else if (r.type === 'error') log('Err: ' + r.message, 'error');
+    } catch (e) { log('JSON err', 'error'); }
 }
 
 async function scanNetworks() {
@@ -156,19 +156,21 @@ async function scanNetworks() {
     setTimeout(() => scanBtn.disabled = false, 2000);
 }
 
-function displayNetworks(networks) {
+function displayNetworks(networks, total) {
     networksSection.classList.remove('hidden');
+    document.querySelector('#networks-section h2').textContent = 'WiFi (' + total + ' total)';
     networksList.innerHTML = '';
     networks.forEach(n => {
         const item = document.createElement('div');
         item.className = 'network-item';
-        const strength = n.rssi >= -50 ? 4 : n.rssi >= -60 ? 3 : n.rssi >= -70 ? 2 : 1;
+        const strength = n.r >= -50 ? 4 : n.r >= -60 ? 3 : n.r >= -70 ? 2 : 1;
         let bars = '';
         for (let i = 1; i <= 4; i++) bars += '<div class="signal-bar ' + (i <= strength ? 'active' : '') + '"></div>';
-        item.innerHTML = '<div class="network-info"><div class="network-ssid">' + (n.ssid || '?') + '</div><div class="network-details">Ch ' + (n.ch || n.channel || '?') + '</div></div><div class="network-signal"><div class="signal-bars">' + bars + '</div><span>' + n.rssi + '</span></div>';
+        const band = n.f === '5' ? '5G' : '2G';
+        const sec = n.k === 'W' ? '🔒' : '🔓';
+        item.innerHTML = '<div class="network-info"><div class="network-ssid">' + (n.s || '?') + '</div><div class="network-details">Ch' + n.c + ' ' + band + ' ' + sec + '</div></div><div class="network-signal"><div class="signal-bars">' + bars + '</div><span>' + n.r + '</span></div>';
         networksList.appendChild(item);
     });
-    log(networks.length + ' réseaux', 'success');
 }
 </script>
 </body>
