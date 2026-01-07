@@ -73,6 +73,7 @@ const COMMAND_UUID = 'a1b2c3d4-0002-1000-8000-00805f9b34fb';
 const RESPONSE_UUID = 'a1b2c3d4-0003-1000-8000-00805f9b34fb';
 
 let device = null, server = null, commandChar = null, responseChar = null;
+let autoScanInterval = null;
 
 const connectBtn = document.getElementById('connect-btn');
 const connectionStatus = document.getElementById('connection-status');
@@ -121,7 +122,14 @@ function setConnected(c) {
     connectBtn.textContent = c ? 'Connecté' : 'Connecter au Pi';
     connectBtn.disabled = c;
     controlsSection.classList.toggle('hidden', !c);
-    if (!c) networksSection.classList.add('hidden');
+
+    // Auto-scan every 5 seconds when connected
+    if (c) {
+        sendCommand({ cmd: 'scan' });
+        autoScanInterval = setInterval(() => sendCommand({ cmd: 'scan' }), 5000);
+    } else {
+        if (autoScanInterval) { clearInterval(autoScanInterval); autoScanInterval = null; }
+    }
 }
 
 async function sendCommand(cmd) {
