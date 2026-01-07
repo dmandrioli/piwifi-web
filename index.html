@@ -93,7 +93,7 @@ function log(msg, type = '') {
     logDiv.insertBefore(entry, logDiv.firstChild);
 }
 
-log('v6');
+log('v7-beacons');
 
 async function connect() {
     if (!navigator.bluetooth) { log('Web Bluetooth non supporté', 'error'); return; }
@@ -166,9 +166,8 @@ function displayNetworks(networks, total) {
         const strength = n.r >= -50 ? 4 : n.r >= -60 ? 3 : n.r >= -70 ? 2 : 1;
         let bars = '';
         for (let i = 1; i <= 4; i++) bars += '<div class="signal-bar ' + (i <= strength ? 'active' : '') + '"></div>';
-        const band = n.f === '5' ? '5G' : '2G';
-        const sec = n.k === 'W' ? '🔒' : '🔓';
-        item.innerHTML = '<div class="network-info"><div class="network-ssid">' + (n.s || '?') + '</div><div class="network-details">Ch' + n.c + ' ' + band + ' ' + sec + '</div></div><div class="network-signal"><div class="signal-bars">' + bars + '</div><span>' + n.r + '</span></div>';
+        const beacons = n.b || 0;
+        item.innerHTML = '<div class="network-info"><div class="network-ssid">' + (n.s || '?') + '</div><div class="network-details">Ch' + n.c + ' | ' + beacons + ' bcn</div></div><div class="network-signal"><div class="signal-bars">' + bars + '</div><span>' + n.r + '</span></div>';
         networksList.appendChild(item);
     });
 }
